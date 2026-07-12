@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.payanvil</groupId>
+    <artifactId>payanvil-core</artifactId>
+    <version>0.1.0</version>
+    <packaging>jar</packaging>
+
+    <name>payanvil-core</name>
+    <description>
+        Open core of Payanvil: Tron USDT batch transfer engine.
+        Key handling, transaction signing/broadcast, fee estimation,
+        balance checks, address security screening, rate providers.
+    </description>
+    <url>https://github.com/Payanvil/payanvil-core</url>
+
+    <licenses>
+        <license>
+            <name>Business Source License 1.1</name>
+            <url>https://github.com/Payanvil/payanvil-core/blob/main/LICENSE</url>
+        </license>
+    </licenses>
+
+    <properties>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <spring.version>7.0.7</spring.version>
+        <spring-boot.version>4.0.6</spring-boot.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- CVE-2026-0636: форс bcprov поверх транзитивной из trident -->
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>1.84</version>
+            </dependency>
+            <!-- CVE-2026-1002: форс vertx-core, мажор 4.x ради trident -->
+            <dependency>
+                <groupId>io.vertx</groupId>
+                <artifactId>vertx-core</artifactId>
+                <version>4.5.27</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Tron SDK: подпись, broadcast, gRPC-клиент -->
+        <dependency>
+            <groupId>io.github.tronprotocol</groupId>
+            <artifactId>trident</artifactId>
+            <version>0.11.0</version>
+        </dependency>
+
+        <!-- Spring: @Service/@Component/@Value (context)
+             и @ConfigurationProperties (boot). Минимальные модули,
+             не стартеры: приложение-хост приносит свой Boot. -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>${spring.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot</artifactId>
+            <version>${spring-boot.version}</version>
+        </dependency>
+
+        <!-- JSON-разбор ответов Binance/CoinGecko/GoPlus -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>3.1.2</version>
+        </dependency>
+
+        <!-- @PreDestroy в TronClientHolder -->
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+
+        <!-- Логирование через фасад; реализацию даёт хост -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.17</version>
+        </dependency>
+    </dependencies>
+</project>

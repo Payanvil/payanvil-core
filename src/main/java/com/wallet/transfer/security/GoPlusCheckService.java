@@ -1,7 +1,7 @@
 package com.wallet.transfer.security;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import com.wallet.transfer.chain.SupportedChain;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,13 +55,11 @@ public class GoPlusCheckService {
     private static final Duration TIMEOUT = Duration.ofSeconds(5);
 
     private final HttpClient httpClient;
-    private final ObjectMapper objectMapper;
 
     public GoPlusCheckService() {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(TIMEOUT)
                 .build();
-        this.objectMapper = new ObjectMapper();
     }
 
     /**
@@ -115,19 +113,19 @@ public class GoPlusCheckService {
     /** Разбор ответа: {"code":1,"message":"ok","result":{флаги "0"/"1", data_source}}. */
     GoPlusVerdict parseVerdict(String body, String address) {
         try {
-            JsonNode root = objectMapper.readTree(body);
+            JsonNode root = JsonMapper.shared().readTree(body);
             JsonNode result = root.path("result");
             if (result.isMissingNode() || result.isNull()) {
                 log.warn("GoPlus: пустой result для адреса {} — пропускаем проверку", address);
                 return GoPlusVerdict.clean();
             }
             List<String> fired = CORE_RISK_FLAGS.stream()
-                    .filter(flag -> "1".equals(result.path(flag).asText()))
+                    .filter(flag -> "1".equals(result.path(flag).asString()))
                     .toList();
             if (fired.isEmpty()) {
                 return GoPlusVerdict.clean();
             }
-            String dataSource = result.path("data_source").asText(null);
+            String dataSource = result.path("data_source").asString(null);
             return new GoPlusVerdict(true, fired, dataSource);
         } catch (Exception e) {
             log.warn("GoPlus: не удалось разобрать ответ для адреса {} ({}) — пропускаем",

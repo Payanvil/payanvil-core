@@ -1,6 +1,6 @@
 package com.wallet.transfer.tron;
 
-import com.wallet.transfer.persistence.TransferEntity;
+import com.wallet.transfer.domain.PreparedTransfer;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -55,11 +55,11 @@ public class BatchTransferService {
      * @param transfers переводы из БД (сохранённые, с id)
      * @return сводка обработки
      */
-    public BatchSummary sendBatch(List<TransferEntity> transfers) {
+    public BatchSummary sendBatch(List<PreparedTransfer> transfers) {
         return sendBatch(transfers, ProgressListener.NO_OP);
     }
 
-    public BatchSummary sendBatch(List<TransferEntity> transfers, ProgressListener progress) {
+    public BatchSummary sendBatch(List<PreparedTransfer> transfers, ProgressListener progress) {
         String sender = clientHolder.senderAddress();
         List<TransferResult> results = new ArrayList<>();
         boolean stopped = false;
@@ -68,8 +68,8 @@ public class BatchTransferService {
         BigDecimal localUsdt = balanceService.getUsdtBalance(sender);
 
         for (int i = 0; i < transfers.size(); i++) {
-            TransferEntity transfer = transfers.get(i);
-            BigDecimal amount = transfer.getAmount().subtract(transfer.getDeductedFeeUsdt());
+            PreparedTransfer transfer = transfers.get(i);
+            BigDecimal amount = transfer.amount().subtract(transfer.deductedFeeUsdt());
             progress.onProgress(ProgressPhase.SENDING, i + 1, transfers.size());
 
             // Комиссия с получателя съела сумму (≤ 0) — не отправляем, метим в отчёт.
@@ -88,7 +88,7 @@ public class BatchTransferService {
             // Оценка комиссии
             BigInteger amountUnits = toMinimalUnits(amount);
             FeeEstimate estimate =
-                    feeEstimateService.estimate(transfer.getWalletAddress(), amountUnits);
+                    feeEstimateService.estimate(transfer.walletAddress(), amountUnits);
 
             // Проверка достаточности (на безопасном балансе)
             FundsVerdict verdict = fundsSufficiencyService.check(
@@ -148,11 +148,11 @@ public class BatchTransferService {
      * @param transfers переводы из БД (сохранённые, с id)
      * @return финальная сводка с подтверждёнными статусами
      */
-    public BatchSummary processBatch(List<TransferEntity> transfers) {
+    public BatchSummary processBatch(List<PreparedTransfer> transfers) {
         return processBatch(transfers, ProgressListener.NO_OP);
     }
 
-    public BatchSummary processBatch(List<TransferEntity> transfers, ProgressListener progress) {
+    public BatchSummary processBatch(List<PreparedTransfer> transfers, ProgressListener progress) {
         BatchSummary afterSend = sendBatch(transfers, progress);
         return confirmBatch(transfers, afterSend, progress);
     }
@@ -162,22 +162,22 @@ public class BatchTransferService {
      * Опрашивает сеть по каждому SENT_UNCONFIRMED и проставляет CONFIRMED/FAILED.
      * PENDING (не дождались) оставляет SENT_UNCONFIRMED — досверим позже.
      *
-     * @param transfers исходные переводы (для поиска сущности по id)
+     * @param transfers исходные переводы (для поиска перевода по id)
      * @param sendSummary сводка после Прохода 1
      * @return финальная сводка
      */
-    public BatchSummary confirmBatch(List<TransferEntity> transfers,
+    public BatchSummary confirmBatch(List<PreparedTransfer> transfers,
                                      BatchSummary sendSummary) {
         return confirmBatch(transfers, sendSummary, ProgressListener.NO_OP);
     }
 
-    public BatchSummary confirmBatch(List<TransferEntity> transfers,
+    public BatchSummary confirmBatch(List<PreparedTransfer> transfers,
                                      BatchSummary sendSummary,
                                      ProgressListener progress) {
-        // id → сущность, чтобы передать в confirm для обновления статуса в БД
-        Map<Long, TransferEntity> byId = new HashMap<>();
-        for (TransferEntity t : transfers) {
-            byId.put(t.getId(), t);
+        // id → перевод, чтобы передать в confirm для обновления статуса
+        Map<Long, PreparedTransfer> byId = new HashMap<>();
+        for (PreparedTransfer t : transfers) {
+            byId.put(t.id(), t);
         }
 
         List<TransferResult> finalResults = new ArrayList<>();
@@ -192,7 +192,7 @@ public class BatchTransferService {
                 continue;
             }
 
-            TransferEntity entity = byId.get(r.transferId());
+            PreparedTransfer entity = byId.get(r.transferId());
             ConfirmOutcome outcome = sendService.confirm(entity, r.txid());
 
             TransferOutcome finalOutcome = switch (outcome.result()) {
@@ -219,10 +219,10 @@ public class BatchTransferService {
     }
 
     /** Минимальная сумма среди переводов ПОСЛЕ index (null, если их нет). */
-    private BigDecimal minAmountAfter(List<TransferEntity> transfers, int index) {
+    private BigDecimal minAmountAfter(List<PreparedTransfer> transfers, int index) {
         BigDecimal min = null;
         for (int j = index + 1; j < transfers.size(); j++) {
-            BigDecimal a = transfers.get(j).getAmount();
+            BigDecimal a = transfers.get(j).amount();
             if (min == null || a.compareTo(min) < 0) {
                 min = a;
             }
@@ -231,7 +231,7 @@ public class BatchTransferService {
     }
 
     /** Пометить переводы [from .. конец] как STOPPED. */
-    private void stopRemaining(List<TransferEntity> transfers, int from,
+    private void stopRemaining(List<PreparedTransfer> transfers, int from,
                                List<TransferResult> results,
                                String detailKey, String detailArg) {
         for (int j = from; j < transfers.size(); j++) {
@@ -245,13 +245,13 @@ public class BatchTransferService {
                 .toBigIntegerExact();
     }
 
-    private TransferResult sentUnconfirmed(TransferEntity t, String txid) {
-        return new TransferResult(t.getId(), t.getWalletAddress(), t.getAmount(),
+    private TransferResult sentUnconfirmed(PreparedTransfer t, String txid) {
+        return new TransferResult(t.id(), t.walletAddress(), t.amount(),
                 TransferOutcome.SENT_UNCONFIRMED, txid, null, null, null, null);
     }
 
-    private TransferResult skipped(TransferEntity t, String detailKey, String detailArg) {
-        return new TransferResult(t.getId(), t.getWalletAddress(), t.getAmount(),
+    private TransferResult skipped(PreparedTransfer t, String detailKey, String detailArg) {
+        return new TransferResult(t.id(), t.walletAddress(), t.amount(),
                 TransferOutcome.SKIPPED, null, null, null, detailKey, detailArg);
     }
 
@@ -259,19 +259,19 @@ public class BatchTransferService {
      * Комиссия с получателя ≥ суммы перевода: отправлять нечего.
      * В отчёт идёт исходная сумма (getAmount), статус FEE_EXCEEDS_AMOUNT.
      */
-    private TransferResult feeExceedsAmount(TransferEntity t) {
-        return new TransferResult(t.getId(), t.getWalletAddress(), t.getAmount(),
+    private TransferResult feeExceedsAmount(PreparedTransfer t) {
+        return new TransferResult(t.id(), t.walletAddress(), t.amount(),
                 TransferOutcome.FEE_EXCEEDS_AMOUNT, null, null, null,
                 "report.reason.feeExceedsAmount", null);
     }
 
-    private TransferResult failed(TransferEntity t, String detailKey, String detailArg) {
-        return new TransferResult(t.getId(), t.getWalletAddress(), t.getAmount(),
+    private TransferResult failed(PreparedTransfer t, String detailKey, String detailArg) {
+        return new TransferResult(t.id(), t.walletAddress(), t.amount(),
                 TransferOutcome.FAILED, null, null, null, detailKey, detailArg);
     }
 
-    private TransferResult stopped(TransferEntity t, String detailKey, String detailArg) {
-        return new TransferResult(t.getId(), t.getWalletAddress(), t.getAmount(),
+    private TransferResult stopped(PreparedTransfer t, String detailKey, String detailArg) {
+        return new TransferResult(t.id(), t.walletAddress(), t.amount(),
                 TransferOutcome.STOPPED, null, null, null, detailKey, detailArg);
     }
 

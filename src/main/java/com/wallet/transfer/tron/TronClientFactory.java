@@ -19,9 +19,11 @@ public class TronClientFactory {
     private static final Pattern HEX_64 = Pattern.compile("^[0-9a-fA-F]{64}$");
 
     private final TronProperties properties;
+    private final NetworkGate networkGate;
 
-    public TronClientFactory(TronProperties properties) {
+    public TronClientFactory(TronProperties properties, NetworkGate networkGate) {
         this.properties = properties;
+        this.networkGate = networkGate;
     }
 
     /**
@@ -29,6 +31,7 @@ public class TronClientFactory {
      * и зачищается после использования.
      */
     public ApiWrapper create(char[] privateKey) {
+        networkGate.ensureAllowed(properties.network());
         String key = validateAndConvert(privateKey);
         return switch (properties.network()) {
             case "nile" -> ApiWrapper.ofNile(key);

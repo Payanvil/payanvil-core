@@ -1,9 +1,7 @@
 package com.wallet.transfer.tron;
 
-import com.wallet.transfer.persistence.TransactionLogEntity;
-import com.wallet.transfer.persistence.TransferEntity;
-import com.wallet.transfer.persistence.TransferPersistenceService;
-import com.wallet.transfer.persistence.TransferStatus;
+import com.wallet.transfer.domain.PreparedTransfer;
+import com.wallet.transfer.domain.TransferLogPort;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -11,57 +9,42 @@ import java.math.BigDecimal;
 /**
  * Сервис проверки балансов перед переводом.
  * <p>
- * Оркестратор: соединяет блокчейн-слой (чтение балansов из сети)
- * со слоем персистентности (запись в БД). Сам не лезет ни в gRPC,
- * ни в SQL напрямую — пользуется готовыми сервисами.
+ * Оркестратор: читает балансы отправителя из сети и фиксирует их
+ * в журнале через порт {@link TransferLogPort}, не зная о способе
+ * хранения. Сам не лезет ни в gRPC, ни в SQL напрямую.
  * <p>
  * Для каждого перевода читает балансы TRX и USDT кошелька-отправителя,
- * фиксирует их в журнале (transaction_log) и переводит перевод
- * в статус BALANCE_CHECKED.
+ * фиксирует их в журнале и переводит перевод в статус BALANCE_CHECKED.
  */
 @Service
 public class BalanceCheckService {
 
     private final TronBalanceService balanceService;
-    private final TransferPersistenceService persistenceService;
+    private final TransferLogPort transferLog;
     private final TronClientHolder clientHolder;
 
     public BalanceCheckService(TronBalanceService balanceService,
-                               TransferPersistenceService persistenceService,
+                               TransferLogPort transferLog,
                                TronClientHolder clientHolder) {
         this.balanceService = balanceService;
-        this.persistenceService = persistenceService;
+        this.transferLog = transferLog;
         this.clientHolder = clientHolder;
     }
 
     /**
      * Проверить балансы отправителя для конкретного перевода
-     * и зафиксировать результат в БД.
+     * и зафиксировать результат в журнале.
      *
      * @param transfer перевод (ожидается в статусе PARSED)
-     * @return созданная запись журнала с балансами
+     * @return id созданной записи журнала
      */
-    public TransactionLogEntity checkBalances(TransferEntity transfer) {
+    public long checkBalances(PreparedTransfer transfer) {
         String sender = clientHolder.senderAddress();
 
-        // Читаем балансы отправителя из сети
         BigDecimal trxBalance = balanceService.getTrxBalance(sender);
         BigDecimal usdtBalance = balanceService.getUsdtBalance(sender);
 
-        // Формируем запись журнала
-        TransactionLogEntity logEntry = new TransactionLogEntity(
-                transfer.getId(),
-                transfer.getAmount(),
-                TransferStatus.BALANCE_CHECKED
-        );
-        logEntry.setBalanceTrx(trxBalance);
-        logEntry.setBalanceUsdt(usdtBalance);
-
-        TransactionLogEntity saved = persistenceService.saveLog(logEntry);
-
-        // Обновляем статус самого перевода
-        persistenceService.updateStatus(transfer.getId(), TransferStatus.BALANCE_CHECKED);
-
-        return saved;
+        return transferLog.logBalanceChecked(
+                transfer.id(), transfer.amount(), trxBalance, usdtBalance);
     }
 }

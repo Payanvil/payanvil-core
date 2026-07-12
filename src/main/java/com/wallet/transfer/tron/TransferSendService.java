@@ -1,9 +1,8 @@
 package com.wallet.transfer.tron;
 
-import com.wallet.transfer.persistence.TransactionLogEntity;
-import com.wallet.transfer.persistence.TransferEntity;
-import com.wallet.transfer.persistence.TransferPersistenceService;
-import com.wallet.transfer.persistence.TransferStatus;
+import com.wallet.transfer.domain.PreparedTransfer;
+import com.wallet.transfer.domain.TransferLogPort;
+import com.wallet.transfer.domain.TransferStatus;
 import org.springframework.stereotype.Service;
 import org.tron.trident.abi.FunctionEncoder;
 import org.tron.trident.abi.TypeReference;
@@ -53,18 +52,18 @@ public class TransferSendService {
     private final TronClientHolder clientHolder;
     private final TronProperties properties;
     private final FeeEstimateService feeEstimateService;
-    private final TransferPersistenceService persistenceService;
+    private final TransferLogPort transferLog;
     private final NetworkRetry networkRetry;
 
-    public TransferSendService(TronClientHolder clientHolder, TronClientHolder clientHolder1,
+    public TransferSendService(TronClientHolder clientHolder,
                                TronProperties properties,
                                FeeEstimateService feeEstimateService,
-                               TransferPersistenceService persistenceService,
+                               TransferLogPort transferLog,
                                NetworkRetry networkRetry) {
-        this.clientHolder = clientHolder1;
+        this.clientHolder = clientHolder;
         this.properties = properties;
         this.feeEstimateService = feeEstimateService;
-        this.persistenceService = persistenceService;
+        this.transferLog = transferLog;
         this.networkRetry = networkRetry;
     }
 
@@ -73,8 +72,8 @@ public class TransferSendService {
      * Удобно для одиночной отправки; в пачке используйте перегрузку
      * с готовой оценкой, чтобы не считать её дважды.
      */
-    public SendResult send(TransferEntity transfer) {
-        String recipient = transfer.getWalletAddress();
+    public SendResult send(PreparedTransfer transfer) {
+        String recipient = transfer.walletAddress();
         BigInteger amount = toMinimalUnits(amountToSend(transfer));
         FeeEstimate estimate = feeEstimateService.estimate(recipient, amount);
         return send(transfer, estimate);
@@ -88,35 +87,29 @@ public class TransferSendService {
      * @param estimate готовая оценка комиссии (из оркестратора)
      * @return результат с txid
      */
-    public SendResult send(TransferEntity transfer, FeeEstimate estimate) {
+    public SendResult send(PreparedTransfer transfer, FeeEstimate estimate) {
         // 1. Идемпотентность: не отправлять повторно
-        if (persistenceService.isAlreadySent(transfer.getId())) {
+        if (transferLog.isAlreadySent(transfer.id())) {
             throw new IllegalStateException(
-                    "Перевод уже отправлен: id=" + transfer.getId());
+                    "Перевод уже отправлен: id=" + transfer.id());
         }
 
-        String recipient = transfer.getWalletAddress();
+        String recipient = transfer.walletAddress();
         BigInteger amount = toMinimalUnits(amountToSend(transfer));
 
         // 2. feeLimit (потолок с запасом) из переданной оценки
         long feeLimitSun = computeFeeLimitSun(estimate.feeTrx());
 
-        // 3. Фиксируем НАМЕРЕНИЕ до broadcast: лог PREPARED + статус перевода
-        TransactionLogEntity log = new TransactionLogEntity(
-                transfer.getId(), transfer.getAmount(), TransferStatus.PREPARED);
-        log.setFeeTrx(estimate.feeTrx());
-        log.setEnergyUsed(estimate.energyUsed());
-        log = persistenceService.saveLog(log);
-        persistenceService.updateStatus(transfer.getId(), TransferStatus.PREPARED);
+        // 3. Фиксируем НАМЕРЕНИЕ до broadcast: журнал PREPARED + статус
+        long logId = transferLog.logPrepared(
+                transfer.id(), transfer.amount(),
+                estimate.feeTrx(), estimate.energyUsed());
 
         // 4. Отправка в сеть
         String txid = broadcast(recipient, amount, feeLimitSun);
 
-        // 5. Фиксируем результат: txid + статус SENT
-        log.setTxid(txid);
-        log.setStatus(TransferStatus.SENT);
-        persistenceService.saveLog(log);
-        persistenceService.updateStatus(transfer.getId(), TransferStatus.SENT);
+        // 5. Фиксируем результат: та же запись журнала дополняется txid + SENT
+        transferLog.logSent(logId, txid);
 
         return new SendResult(txid, estimate.feeTrx(), estimate.energyUsed());
     }
@@ -126,8 +119,8 @@ public class TransferSendService {
      * Для FeePayer.SENDER удержание равно 0 — отправляется полная сумма.
      * Для RECIPIENT — за вычетом комиссии (посчитана координатором заранее).
      */
-    private BigDecimal amountToSend(TransferEntity transfer) {
-        return transfer.getAmount().subtract(transfer.getDeductedFeeUsdt());
+    private BigDecimal amountToSend(PreparedTransfer transfer) {
+        return transfer.amount().subtract(transfer.deductedFeeUsdt());
     }
 
     /** USDT (человеческий BigDecimal) → минимальные единицы. */
@@ -226,7 +219,7 @@ public class TransferSendService {
      * @return итог: CONFIRMED/FAILED с фактической комиссией и временем блока;
      *         PENDING — не дождались (статус не меняем, комиссия/время null)
      */
-    public ConfirmOutcome confirm(TransferEntity transfer, String txid) {
+    public ConfirmOutcome confirm(PreparedTransfer transfer, String txid) {
         long deadline = System.currentTimeMillis()
                 + properties.confirmationTimeoutSeconds() * 1000L;
 
@@ -243,16 +236,10 @@ public class TransferSendService {
                 BigDecimal actualFeeTrx = sunToTrx(info.getFee());
                 Instant confirmedAt = Instant.ofEpochMilli(info.getBlockTimeStamp());
 
-                // Журнал: новая запись-событие (append-only)
-                TransactionLogEntity log = new TransactionLogEntity(
-                        transfer.getId(), transfer.getAmount(), finalStatus);
-                log.setTxid(txid);
-                log.setFeeTrx(actualFeeTrx);
-                log.setConfirmedAt(confirmedAt);
-                persistenceService.saveLog(log);
-
-                // Статус перевода
-                persistenceService.updateStatus(transfer.getId(), finalStatus);
+                // Журнал: новая запись-событие (append-only) + статус
+                transferLog.logConfirmOutcome(
+                        transfer.id(), transfer.amount(), finalStatus,
+                        txid, actualFeeTrx, confirmedAt);
 
                 ConfirmResult result =
                         success ? ConfirmResult.CONFIRMED : ConfirmResult.FAILED;
