@@ -56,6 +56,38 @@
             <groupId>io.github.tronprotocol</groupId>
             <artifactId>trident</artifactId>
             <version>0.11.0</version>
+            <exclusions>
+                <!-- Дубль gRPC-транспорта: trident тянет и grpc-netty, и
+                     grpc-netty-shaded; рабочий — первый. Shaded несёт внутри
+                     неподписанные нативные jnilib, валившие нотаризацию. -->
+                <exclusion>
+                    <groupId>io.grpc</groupId>
+                    <artifactId>grpc-netty-shaded</artifactId>
+                </exclusion>
+                <!-- Нативные ускорители Netty под все платформы (kqueue/quic/
+                     dns-macos/epoll/io_uring): не обязательны — Netty работает
+                     на NIO. Их неподписанные jnilib валили нотаризацию macOS. -->
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport-native-kqueue</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-resolver-dns-native-macos</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-codec-native-quic</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport-native-epoll</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport-native-io_uring</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Spring: @Service/@Component/@Value (context)
