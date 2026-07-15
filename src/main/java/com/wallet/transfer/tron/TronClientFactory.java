@@ -20,10 +20,12 @@ public class TronClientFactory {
 
     private final TronProperties properties;
     private final NetworkGate networkGate;
+    private final NetworkSelection networkSelection;
 
-    public TronClientFactory(TronProperties properties, NetworkGate networkGate) {
+    public TronClientFactory(TronProperties properties, NetworkGate networkGate, NetworkSelection networkSelection) {
         this.properties = properties;
         this.networkGate = networkGate;
+        this.networkSelection = networkSelection;
     }
 
     /**
@@ -31,9 +33,10 @@ public class TronClientFactory {
      * и зачищается после использования.
      */
     public ApiWrapper create(char[] privateKey) {
-        networkGate.ensureAllowed(properties.network());
+        String network = networkSelection.current();
+        networkGate.ensureAllowed(network);
         String key = validateAndConvert(privateKey);
-        return switch (properties.network()) {
+        return switch (network) {
             case "nile" -> ApiWrapper.ofNile(key);
             case "shasta" -> ApiWrapper.ofShasta(key);
             case "mainnet" -> {
@@ -45,7 +48,7 @@ public class TronClientFactory {
                 yield ApiWrapper.ofMainnet(key, apiKey);
             }
             default -> throw new IllegalArgumentException(
-                    "Неизвестная сеть Tron: " + properties.network()
+                    "Неизвестная сеть Tron: " + network
                             + ". Допустимо: nile, shasta, mainnet");
         };
     }
