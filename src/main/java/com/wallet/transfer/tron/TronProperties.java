@@ -11,7 +11,6 @@ import java.math.BigDecimal;
  * @param network            сеть: nile, shasta или mainnet
  * @param apiKey             API-ключ TronGrid (обязателен для mainnet)
  * @param recipientAddress   адрес тестового получателя (из .env, для разведки/тестов)
- * @param usdtDecimals       число знаков после запятой у USDT (для Tether = 6)
  * @param balanceCheckBuffer множитель запаса TRX при проверке достаточности средств
  * @param confirmationTimeoutSeconds тайм-аут 60сек на подтверждение из сети
  */
@@ -20,7 +19,6 @@ public record TronProperties(
         String network,
         String apiKey,
         String recipientAddress,
-        int usdtDecimals,
         BigDecimal balanceCheckBuffer,
         long confirmationTimeoutSeconds
 ) {

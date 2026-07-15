@@ -1,5 +1,6 @@
 package com.wallet.transfer.rate;
 
+import com.wallet.transfer.domain.SupportedToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -8,7 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Оркестратор получения курса TRX→USDT.
+ * Оркестратор получения курса TRX к токену перевода.
  * <p>
  * Перебирает источники в порядке {@code @Order}: основной (Binance),
  * затем запасной (CoinGecko). Возвращает курс первого ответившего;
@@ -33,19 +34,20 @@ public class TrxRateService {
     /**
      * Получить курс из первого доступного источника.
      *
+     * @param token токен, в котором нужен курс TRX
      * @return курс или empty, если ни один источник не ответил
      */
-    public Optional<TrxRate> fetchRate() {
+    public Optional<TrxRate> fetchRate(SupportedToken token) {
         for (TrxRateProvider provider : providers) {
-            Optional<TrxRate> rate = provider.fetch();
+            Optional<TrxRate> rate = provider.fetch(token);
             if (rate.isPresent()) {
-                log.info("Курс TRX→USDT получен от {}: {}",
-                        provider.name(), rate.get().price());
+                log.info("Курс TRX→{} получен от {}: {}",
+                        token, provider.name(), rate.get().price());
                 return rate;
             }
             log.warn("Источник {} не дал курс, пробуем следующий", provider.name());
         }
-        log.error("Ни один источник курса TRX→USDT не доступен");
+        log.error("Ни один источник курса TRX→{} не доступен", token);
         return Optional.empty();
     }
 }

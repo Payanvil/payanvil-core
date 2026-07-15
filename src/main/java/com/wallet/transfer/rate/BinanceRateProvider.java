@@ -1,5 +1,6 @@
 package com.wallet.transfer.rate;
 
+import com.wallet.transfer.domain.SupportedToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -16,8 +17,9 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * Курс TRX→USDT с Binance public ticker (без API-ключа).
- * Ответ: {"symbol":"TRXUSDT","price":"0.32100000"}.
+ * Курс TRX к токену перевода с Binance public ticker (без API-ключа).
+ * Символ пары собирается из шаблона в настройках: TRX{token} → TRXUSDT,
+ * TRXUSDC. Ответ: {"symbol":"TRXUSDT","price":"0.32100000"}.
  */
 @Component
 @org.springframework.core.annotation.Order(1)
@@ -49,10 +51,10 @@ public class BinanceRateProvider implements TrxRateProvider {
     }
 
     @Override
-    public Optional<TrxRate> fetch() {
+    public Optional<TrxRate> fetch(SupportedToken token) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(properties.binanceUrl()))
+                    .uri(URI.create(properties.binanceUrl().replace("{token}", token.name())))
                     .timeout(Duration.ofSeconds(properties.timeoutSeconds()))
                     .GET()
                     .build();

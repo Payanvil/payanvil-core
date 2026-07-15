@@ -9,16 +9,22 @@ import org.tron.trident.abi.datatypes.Function;
 import org.tron.trident.abi.datatypes.Type;
 import org.tron.trident.proto.Response.TransactionExtention;
 import org.tron.trident.utils.Numeric;
+import com.wallet.transfer.domain.SupportedToken;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 /**
- * Проверка адреса в чёрном списке USDT (Tether).
+ * Проверка адреса в чёрном списке эмитента токена.
  * <p>
- * USDT-контракт хранит флаг блокировки и отдаёт его функцией
- * isBlackListed(address). Заблокированному адресу перевод USDT
- * не пройдёт (контракт откатит транзакцию), поэтому получателей
- * полезно проверять до отправки.
+ * Контракты стейблкоинов хранят флаг блокировки и отдают его view-функцией;
+ * имя функции у эмитентов различается (см. {@link SupportedToken}).
+ * Заблокированному адресу перевод не пройдёт, поэтому получателей полезно
+ * проверять до отправки.
+ * <p>
+ * Только для боевой сети: в тестовых сетях контракты токенов — упрощённые,
+ * функции чёрного списка у них нет и списков как таковых не существует.
  * <p>
  * Операция чтения (view): без транзакции, подписи и затрат ресурсов.
  */
@@ -30,27 +36,42 @@ public class BlacklistCheckService {
     /** Повтор чтения: базовая пауза (мс), далее нарастает ×2. */
     private static final long READ_BASE_DELAY_MS = 1_000L;
 
+    private static final Logger log = LoggerFactory.getLogger(BlacklistCheckService.class);
+
     private final NetworkRetry networkRetry;
     private final TronClientHolder clientHolder;
     private final TokenContracts tokenContracts;
+    private final NetworkSelection networkSelection;
+    private final TokenSelection tokenSelection;
 
     public BlacklistCheckService(NetworkRetry networkRetry,
                                  TronClientHolder clientHolder,
-                                 TokenContracts tokenContracts) {
+                                 TokenContracts tokenContracts,
+                                 NetworkSelection networkSelection,
+                                 TokenSelection tokenSelection) {
         this.networkRetry = networkRetry;
         this.clientHolder = clientHolder;
         this.tokenContracts = tokenContracts;
+        this.networkSelection = networkSelection;
+        this.tokenSelection = tokenSelection;
     }
 
     /**
-     * Заблокирован ли адрес в чёрном списке USDT.
+     * Заблокирован ли адрес в чёрном списке эмитента выбранного токена.
      *
      * @param address адрес получателя в формате Base58 (начинается с T)
-     * @return true, если адрес в чёрном списке Tether
+     * @return true, если адрес в чёрном списке; false в тестовых сетях,
+     *         где чёрных списков нет
      */
     public boolean isBlacklisted(String address) {
+        if (!"mainnet".equals(networkSelection.current())) {
+            log.debug("Чёрный список не проверяется в сети {}: "
+                            + "у тестовых контрактов такой функции нет",
+                    networkSelection.current());
+            return false;
+        }
         Function fn = new Function(
-                "isBlackListed",
+                tokenSelection.current().blacklistFunction(),
                 List.of(new Address(address)),
                 List.of(new TypeReference<Bool>() {})
         );

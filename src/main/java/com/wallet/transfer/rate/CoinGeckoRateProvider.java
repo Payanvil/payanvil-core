@@ -1,5 +1,6 @@
 package com.wallet.transfer.rate;
 
+import com.wallet.transfer.domain.SupportedToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -16,8 +17,13 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * Запасной источник курса TRX→USDT — CoinGecko (без API-ключа).
+ * Запасной источник курса TRX — CoinGecko (без API-ключа).
  * Ответ: {"tron":{"usd":0.32}}. Цена приходит числом, не строкой.
+ * <p>
+ * Отдаёт курс в долларах США независимо от запрошенного токена: CoinGecko
+ * не котирует TRX в стейблкоинах (в supported_vs_currencies есть только usd).
+ * Для USDT и USDC это осознанное приближение — оба привязаны к доллару 1:1,
+ * а источник и так запасной, к нему обращаемся лишь когда основной недоступен.
  */
 @Component
 @org.springframework.core.annotation.Order(2)
@@ -49,7 +55,7 @@ public class CoinGeckoRateProvider implements TrxRateProvider {
     }
 
     @Override
-    public Optional<TrxRate> fetch() {
+    public Optional<TrxRate> fetch(SupportedToken token) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(properties.coingeckoUrl()))
