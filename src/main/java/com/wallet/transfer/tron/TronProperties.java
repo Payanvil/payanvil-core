@@ -24,12 +24,4 @@ public record TronProperties(
         BigDecimal balanceCheckBuffer,
         long confirmationTimeoutSeconds
 ) {
-    /**
-     * Адрес контракта USDT — всегда из каталога по сети.
-     * Не настраивается извне: это исключает запуск
-     * «боевая сеть с тестовым контрактом» и наоборот.
-     */
-    public String usdtContractAddress() {
-        return UsdtContractCatalog.forNetwork(network);
-    }
 }

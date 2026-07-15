@@ -25,12 +25,13 @@ public class TronBalanceService {
 
 
     private final TronClientHolder clientHolder;
-    private final TronProperties properties;
+    private final TokenContracts tokenContracts;
     private final NetworkRetry networkRetry;
 
-    public TronBalanceService(TronClientHolder clientHolder, TronClientHolder clientHolder1, TronProperties properties, NetworkRetry networkRetry) {
-        this.clientHolder = clientHolder1;
-        this.properties = properties;
+    public TronBalanceService(TronClientHolder clientHolder, TokenContracts tokenContracts,
+                              NetworkRetry networkRetry) {
+        this.clientHolder = clientHolder;
+        this.tokenContracts = tokenContracts;
         this.networkRetry = networkRetry;
     }
 
@@ -73,7 +74,7 @@ public class TronBalanceService {
         BigInteger rawBalance = networkRetry.execute(
                 () -> {
                     Contract contract =
-                            clientHolder.client().getContract(properties.usdtContractAddress());
+                            clientHolder.client().getContract(tokenContracts.address());
                     Trc20Contract usdt = new Trc20Contract(contract, address, clientHolder.client());
                     return usdt.balanceOf(address);
                 },
@@ -82,7 +83,7 @@ public class TronBalanceService {
                 READ_BASE_DELAY_MS
         );
 
-        BigDecimal divisor = BigDecimal.TEN.pow(properties.usdtDecimals());
+        BigDecimal divisor = BigDecimal.TEN.pow(tokenContracts.decimals());
         return new BigDecimal(rawBalance).divide(divisor, MathContext.DECIMAL64);
     }
 }

@@ -32,14 +32,13 @@ public class FeeEstimateService {
     private static final long READ_BASE_DELAY_MS = 1_000L;
 
     private final NetworkRetry networkRetry;
-
     private final TronClientHolder clientHolder;
-    private final TronProperties properties;
+    private final TokenContracts tokenContracts;
 
-    public FeeEstimateService(NetworkRetry networkRetry, TronClientHolder clientHolder, TronProperties properties) {
+    public FeeEstimateService(NetworkRetry networkRetry, TronClientHolder clientHolder, TokenContracts tokenContracts) {
         this.networkRetry = networkRetry;
         this.clientHolder = clientHolder;
-        this.properties = properties;
+        this.tokenContracts = tokenContracts;
     }
 
     /**
@@ -70,7 +69,7 @@ public class FeeEstimateService {
         TransactionExtention ext = networkRetry.execute(
                 () -> clientHolder.client().triggerConstantContract(
                         clientHolder.senderAddress(),
-                        properties.usdtContractAddress(),
+                        tokenContracts.address(),
                         transfer
                 ),
                 NetworkRetry::isTransientNetworkError,

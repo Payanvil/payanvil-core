@@ -51,17 +51,19 @@ public class TransferSendService {
 
     private final TronClientHolder clientHolder;
     private final TronProperties properties;
+    private final TokenContracts tokenContracts;
     private final FeeEstimateService feeEstimateService;
     private final TransferLogPort transferLog;
     private final NetworkRetry networkRetry;
 
     public TransferSendService(TronClientHolder clientHolder,
-                               TronProperties properties,
+                               TronProperties properties, TokenContracts tokenContracts,
                                FeeEstimateService feeEstimateService,
                                TransferLogPort transferLog,
                                NetworkRetry networkRetry) {
         this.clientHolder = clientHolder;
         this.properties = properties;
+        this.tokenContracts = tokenContracts;
         this.feeEstimateService = feeEstimateService;
         this.transferLog = transferLog;
         this.networkRetry = networkRetry;
@@ -126,7 +128,7 @@ public class TransferSendService {
     /** USDT (человеческий BigDecimal) → минимальные единицы. */
     private BigInteger toMinimalUnits(BigDecimal amountUsdt) {
         return amountUsdt
-                .multiply(BigDecimal.TEN.pow(properties.usdtDecimals()))
+                .multiply(BigDecimal.TEN.pow(tokenContracts.decimals()))
                 .toBigIntegerExact();
     }
 
@@ -165,7 +167,7 @@ public class TransferSendService {
 
             TransactionExtention txnExt = clientHolder.client().triggerContract(
                     clientHolder.senderAddress(),
-                    properties.usdtContractAddress(),
+                    tokenContracts.address(),
                     encodedHex,
                     0L, 0L, null,
                     feeLimitSun

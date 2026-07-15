@@ -31,19 +31,19 @@ public class BatchTransferService {
     private final FeeEstimateService feeEstimateService;
     private final FundsSufficiencyService fundsSufficiencyService;
     private final TransferSendService sendService;
-    private final TronProperties properties;
+    private final TokenContracts tokenContracts;
     private final TronClientHolder clientHolder;
 
     public BatchTransferService(TronBalanceService balanceService,
                                 FeeEstimateService feeEstimateService,
                                 FundsSufficiencyService fundsSufficiencyService,
                                 TransferSendService sendService,
-                                TronProperties properties, TronClientHolder clientHolder) {
+                                TokenContracts tokenContracts, TronClientHolder clientHolder) {
         this.balanceService = balanceService;
         this.feeEstimateService = feeEstimateService;
         this.fundsSufficiencyService = fundsSufficiencyService;
         this.sendService = sendService;
-        this.properties = properties;
+        this.tokenContracts = tokenContracts;
         this.clientHolder = clientHolder;
     }
 
@@ -241,7 +241,7 @@ public class BatchTransferService {
 
     private BigInteger toMinimalUnits(BigDecimal amountUsdt) {
         return amountUsdt
-                .multiply(BigDecimal.TEN.pow(properties.usdtDecimals()))
+                .multiply(BigDecimal.TEN.pow(tokenContracts.decimals()))
                 .toBigIntegerExact();
     }
 

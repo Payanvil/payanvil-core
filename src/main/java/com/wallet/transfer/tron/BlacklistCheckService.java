@@ -32,14 +32,14 @@ public class BlacklistCheckService {
 
     private final NetworkRetry networkRetry;
     private final TronClientHolder clientHolder;
-    private final TronProperties properties;
+    private final TokenContracts tokenContracts;
 
     public BlacklistCheckService(NetworkRetry networkRetry,
                                  TronClientHolder clientHolder,
-                                 TronProperties properties) {
+                                 TokenContracts tokenContracts) {
         this.networkRetry = networkRetry;
         this.clientHolder = clientHolder;
-        this.properties = properties;
+        this.tokenContracts = tokenContracts;
     }
 
     /**
@@ -57,7 +57,7 @@ public class BlacklistCheckService {
         TransactionExtention ext = networkRetry.execute(
                 () -> clientHolder.client().triggerConstantContract(
                         clientHolder.senderAddress(),
-                        properties.usdtContractAddress(),
+                        tokenContracts.address(),
                         fn
                 ),
                 NetworkRetry::isTransientNetworkError,
