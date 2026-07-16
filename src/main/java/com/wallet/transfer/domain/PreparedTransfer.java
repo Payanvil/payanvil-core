@@ -16,8 +16,8 @@ import java.math.BigDecimal;
  * @param walletAddress   адрес кошелька получателя
  * @param amount          сумма перевода, USDT
  * @param feePayer        кто платит сетевую комиссию
- * @param deductedFeeUsdt комиссия, вычтенная из суммы (режим «платит
- *                        получатель»), иначе ноль
+ * @param deductedFee   комиссия в токене перевода, вычтенная из суммы
+ *                      (режим «платит получатель»), иначе ноль
  */
 public record PreparedTransfer(
         Long id,
@@ -25,5 +25,5 @@ public record PreparedTransfer(
         String walletAddress,
         BigDecimal amount,
         FeePayer feePayer,
-        BigDecimal deductedFeeUsdt) {
+        BigDecimal deductedFee) {
 }

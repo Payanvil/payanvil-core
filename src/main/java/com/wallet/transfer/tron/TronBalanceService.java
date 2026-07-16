@@ -57,26 +57,26 @@ public class TronBalanceService {
     }
 
     /**
-     * Прочитать баланс USDT (TRC20) по адресу.
+     * Прочитать баланс выбранного токена (TRC20) по адресу.
      * <p>
-     * USDT — это смарт-контракт, поэтому баланс читается вызовом
+     * Токен — это смарт-контракт, поэтому баланс читается вызовом
      * метода balanceOf у контракта. Результат приходит в минимальных
-     * единицах токена и переводится в человеческий USDT по числу
-     * decimals из настроек (для Tether = 6).
+     * единицах токена и переводится в человеческий вид по числу
+     * decimals самого токена.
      * <p>
      * Это операция чтения (view): она не создаёт транзакцию,
      * не тратит ресурсы сети и не требует подписи.
      *
      * @param address адрес кошелька в формате Base58 (начинается с T)
-     * @return баланс в USDT, с точностью BigDecimal
+     * @return баланс в единицах токена, с точностью BigDecimal
      */
-    public BigDecimal getUsdtBalance(String address) {
+    public BigDecimal getTokenBalance(String address) {
         BigInteger rawBalance = networkRetry.execute(
                 () -> {
                     Contract contract =
                             clientHolder.client().getContract(tokenContracts.address());
-                    Trc20Contract usdt = new Trc20Contract(contract, address, clientHolder.client());
-                    return usdt.balanceOf(address);
+                    Trc20Contract token = new Trc20Contract(contract, address, clientHolder.client());
+                    return token.balanceOf(address);
                 },
                 NetworkRetry::isTransientNetworkError,
                 READ_MAX_ATTEMPTS,

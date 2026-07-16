@@ -26,7 +26,7 @@ import java.util.List;
 import java.time.Instant;
 
 /**
- * Отправка USDT-перевода в сеть Tron.
+ * Отправка перевода токена в сеть Tron.
  * <p>
  * Схема защиты от двойной отправки: фиксируем намерение (PREPARED)
  * в БД ДО broadcast, затем после успешного broadcast — SENT с txid.
@@ -117,17 +117,17 @@ public class TransferSendService {
     }
 
     /**
-     * Сумма к отправке в USDT: исходная сумма минус удержанная комиссия.
+     * Сумма к отправке в токене: исходная сумма минус удержанная комиссия.
      * Для FeePayer.SENDER удержание равно 0 — отправляется полная сумма.
      * Для RECIPIENT — за вычетом комиссии (посчитана координатором заранее).
      */
     private BigDecimal amountToSend(PreparedTransfer transfer) {
-        return transfer.amount().subtract(transfer.deductedFeeUsdt());
+        return transfer.amount().subtract(transfer.deductedFee());
     }
 
-    /** USDT (человеческий BigDecimal) → минимальные единицы. */
-    private BigInteger toMinimalUnits(BigDecimal amountUsdt) {
-        return amountUsdt
+    /** Сумма токена (человеческий BigDecimal) → минимальные единицы. */
+    private BigInteger toMinimalUnits(BigDecimal amount) {
+        return amount
                 .multiply(BigDecimal.TEN.pow(tokenContracts.decimals()))
                 .toBigIntegerExact();
     }

@@ -13,7 +13,7 @@ import java.math.BigDecimal;
  * в журнале через порт {@link TransferLogPort}, не зная о способе
  * хранения. Сам не лезет ни в gRPC, ни в SQL напрямую.
  * <p>
- * Для каждого перевода читает балансы TRX и USDT кошелька-отправителя,
+ * Для каждого перевода читает балансы TRX и токена кошелька-отправителя,
  * фиксирует их в журнале и переводит перевод в статус BALANCE_CHECKED.
  */
 @Service
@@ -42,9 +42,9 @@ public class BalanceCheckService {
         String sender = clientHolder.senderAddress();
 
         BigDecimal trxBalance = balanceService.getTrxBalance(sender);
-        BigDecimal usdtBalance = balanceService.getUsdtBalance(sender);
+        BigDecimal tokenBalance = balanceService.getTokenBalance(sender);
 
         return transferLog.logBalanceChecked(
-                transfer.id(), transfer.amount(), trxBalance, usdtBalance);
+                transfer.id(), transfer.amount(), trxBalance, tokenBalance);
     }
 }

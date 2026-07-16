@@ -8,7 +8,7 @@ import java.time.Instant;
  *
  * @param transferId идентификатор перевода в БД
  * @param recipient  адрес получателя
- * @param amount     сумма перевода в USDT
+ * @param amount     сумма перевода в токене
  * @param outcome    итог обработки
  * @param txid       хэш транзакции (null, если не отправляли)
  * @param feeTrx     фактическая комиссия в TRX (null, если не подтверждён)

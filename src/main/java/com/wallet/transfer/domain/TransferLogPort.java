@@ -25,15 +25,15 @@ public interface TransferLogPort {
      *
      * @return id созданной записи журнала
      */
-    long logBalanceChecked(Long transferId, BigDecimal amountUsdt,
-                           BigDecimal balanceTrx, BigDecimal balanceUsdt);
+    long logBalanceChecked(Long transferId, BigDecimal amount,
+                           BigDecimal balanceTrx, BigDecimal balanceToken);
 
     /**
      * Транзакция построена и подписана; оценка комиссии зафиксирована.
      *
      * @return id созданной записи журнала
      */
-    long logPrepared(Long transferId, BigDecimal amountUsdt,
+    long logPrepared(Long transferId, BigDecimal amount,
                      BigDecimal feeTrx, Long energyUsed);
 
     /**
@@ -45,7 +45,7 @@ public interface TransferLogPort {
     void logSent(long logId, String txid);
 
     /** Итог подтверждения: CONFIRMED или FAILED, фактическая комиссия. */
-    void logConfirmOutcome(Long transferId, BigDecimal amountUsdt,
+    void logConfirmOutcome(Long transferId, BigDecimal amount,
                            TransferStatus finalStatus, String txid,
                            BigDecimal actualFeeTrx, Instant confirmedAt);
 

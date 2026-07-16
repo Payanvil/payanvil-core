@@ -19,8 +19,8 @@ import java.util.Map;
  * <p>
  * Классификация сбоев:
  * - не хватает TRX на комиссию → STOP (общий ресурс)
- * - не хватает USDT, но впереди есть платёж по карману → SKIP, дальше
- * - не хватает USDT и впереди ничего по карману → STOP
+ * - не хватает токена, но впереди есть платёж по карману → SKIP, дальше
+ * - не хватает токена и впереди ничего по карману → STOP
  * - сетевой сбой при отправке (повтор исчерпан) → STOP
  * - прочая ошибка отправки (revert, битый адрес) → SKIP (FAILED), дальше
  */
@@ -64,12 +64,12 @@ public class BatchTransferService {
         List<TransferResult> results = new ArrayList<>();
         boolean stopped = false;
 
-        // Локальный счётчик USDT: читаем сеть один раз вначале, дальше вычитаем сами
-        BigDecimal localUsdt = balanceService.getUsdtBalance(sender);
+        // Локальный счётчик токена: читаем сеть один раз вначале, дальше вычитаем сами
+        BigDecimal localToken = balanceService.getTokenBalance(sender);
 
         for (int i = 0; i < transfers.size(); i++) {
             PreparedTransfer transfer = transfers.get(i);
-            BigDecimal amount = transfer.amount().subtract(transfer.deductedFeeUsdt());
+            BigDecimal amount = transfer.amount().subtract(transfer.deductedFee());
             progress.onProgress(ProgressPhase.SENDING, i + 1, transfers.size());
 
             // Комиссия с получателя съела сумму (≤ 0) — не отправляем, метим в отчёт.
@@ -79,11 +79,11 @@ public class BatchTransferService {
             }
 
             // Свежие балансы из сети
-            BigDecimal networkUsdt = balanceService.getUsdtBalance(sender);
+            BigDecimal networkToken = balanceService.getTokenBalance(sender);
             BigDecimal trxBalance = balanceService.getTrxBalance(sender);
 
-            // Безопасный USDT = минимум из сети и локального счётчика
-            BigDecimal safeUsdt = networkUsdt.min(localUsdt);
+            // Безопасный баланс токена = минимум из сети и локального счётчика
+            BigDecimal safeToken = networkToken.min(localToken);
 
             // Оценка комиссии
             BigInteger amountUnits = toMinimalUnits(amount);
@@ -92,7 +92,7 @@ public class BatchTransferService {
 
             // Проверка достаточности (на безопасном балансе)
             FundsVerdict verdict = fundsSufficiencyService.check(
-                    amount, safeUsdt, trxBalance, estimate.feeTrx());
+                    amount, safeToken, trxBalance, estimate.feeTrx());
 
             // 1) Не хватает TRX на комиссию → STOP всей пачки
             if (!verdict.trxSufficient()) {
@@ -102,18 +102,18 @@ public class BatchTransferService {
                 break;
             }
 
-            // 2) Не хватает USDT на этот перевод
-            if (!verdict.usdtSufficient()) {
-                results.add(skipped(transfer, "report.reason.insufficientUsdt", null));
+            // 2) Не хватает токена на этот перевод
+            if (!verdict.tokenSufficient()) {
+                results.add(skipped(transfer, "report.reason.insufficientToken", null));
 
                 BigDecimal minAfter = minAmountAfter(transfers, i);
                 if (minAfter == null) {
                     continue; // это был последний — просто заканчиваем
                 }
-                if (safeUsdt.compareTo(minAfter) < 0) {
+                if (safeToken.compareTo(minAfter) < 0) {
                     // впереди ничего по карману → STOP остатка
                     stopRemaining(transfers, i + 1, results,
-                            "report.reason.insufficientUsdtRemaining", null);
+                            "report.reason.insufficientTokenRemaining", null);
                     stopped = true;
                     break;
                 }
@@ -125,7 +125,7 @@ public class BatchTransferService {
                 SendResult sent = sendService.send(transfer, estimate);
                 results.add(sentUnconfirmed(transfer, sent.txid()));
                 // Вычитаем из локального счётчика отправленную сумму
-                localUsdt = localUsdt.subtract(amount);
+                localToken = localToken.subtract(amount);
             } catch (RetryExhaustedException e) {
                 // Сеть не оклемалась → STOP
                 stopRemaining(transfers, i, results,
@@ -239,8 +239,8 @@ public class BatchTransferService {
         }
     }
 
-    private BigInteger toMinimalUnits(BigDecimal amountUsdt) {
-        return amountUsdt
+    private BigInteger toMinimalUnits(BigDecimal amount) {
+        return amount
                 .multiply(BigDecimal.TEN.pow(tokenContracts.decimals()))
                 .toBigIntegerExact();
     }

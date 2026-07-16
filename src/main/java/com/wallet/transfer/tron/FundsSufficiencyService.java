@@ -23,27 +23,27 @@ public class FundsSufficiencyService {
     /**
      * Проверить, хватает ли средств отправителя на перевод.
      *
-     * @param amountUsdt  сумма перевода в USDT
-     * @param usdtBalance баланс USDT отправителя
-     * @param trxBalance  баланс TRX отправителя
-     * @param feeTrx      оценка комиссии в TRX (без буфера)
+     * @param amount       сумма перевода в токене
+     * @param tokenBalance баланс токена у отправителя
+     * @param trxBalance   баланс TRX отправителя
+     * @param feeTrx       оценка комиссии в TRX (без буфера)
      * @return вердикт с детализацией
      */
-    public FundsVerdict check(BigDecimal amountUsdt,
-                              BigDecimal usdtBalance,
+    public FundsVerdict check(BigDecimal amount,
+                              BigDecimal tokenBalance,
                               BigDecimal trxBalance,
                               BigDecimal feeTrx) {
         BigDecimal requiredTrx = feeTrx.multiply(balanceCheckBuffer);
 
-        boolean usdtOk = usdtBalance.compareTo(amountUsdt) >= 0;
+        boolean tokenOk = tokenBalance.compareTo(amount) >= 0;
         boolean trxOk = trxBalance.compareTo(requiredTrx) >= 0;
 
         return new FundsVerdict(
-                usdtOk && trxOk,
-                usdtOk,
+                tokenOk && trxOk,
+                tokenOk,
                 trxOk,
-                amountUsdt,
-                usdtBalance,
+                amount,
+                tokenBalance,
                 requiredTrx,
                 trxBalance
         );

@@ -15,7 +15,7 @@ import java.math.MathContext;
 import java.util.List;
 
 /**
- * Оценка комиссии USDT-перевода по данным сети.
+ * Оценка комиссии перевода токена по данным сети.
  * <p>
  * energy берётся "сухим" вызовом transfer (triggerConstantContract),
  * цена energy — из getEnergyPrices. Буфер здесь НЕ применяется:
@@ -42,10 +42,10 @@ public class FeeEstimateService {
     }
 
     /**
-     * Оценить комиссию перевода USDT на адрес получателя.
+     * Оценить комиссию перевода токена на адрес получателя.
      *
      * @param recipient адрес получателя (Base58, начинается с T)
-     * @param amount    сумма в минимальных единицах USDT (с учётом decimals)
+     * @param amount    сумма в минимальных единицах токена (с учётом decimals)
      * @return оценка комиссии (energy, цена, итог в TRX)
      */
     public FeeEstimate estimate(String recipient, BigInteger amount) {
