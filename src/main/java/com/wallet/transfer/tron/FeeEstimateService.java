@@ -6,7 +6,6 @@ import org.tron.trident.abi.datatypes.Address;
 import org.tron.trident.abi.datatypes.Bool;
 import org.tron.trident.abi.datatypes.Function;
 import org.tron.trident.abi.datatypes.generated.Uint256;
-import org.tron.trident.core.ApiWrapper;
 import org.tron.trident.proto.Response.TransactionExtention;
 
 import java.math.BigDecimal;

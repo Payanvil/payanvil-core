@@ -1,7 +1,6 @@
 package com.wallet.transfer.tron;
 
 import org.springframework.stereotype.Service;
-import org.tron.trident.core.ApiWrapper;
 import org.tron.trident.core.contract.Contract;
 import org.tron.trident.core.contract.Trc20Contract;
 
